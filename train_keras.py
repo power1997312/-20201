@@ -2,13 +2,13 @@ import reader
 import tensorflow as tf
 import keras
 import matplotlib.pyplot as plt
+import os
 
 # prepare data
 from visible import plot_image, plot_value_array
 
 train_img, train_label = reader.load_mnist('datasets', kind='train')  # (60000,784) ,(60000, )
 test_img, test_label = reader.load_mnist('datasets', kind='t10k')  # (10000,784) , (10000, )
-
 
 """show img[0] in colors
 plt.figure()
@@ -17,7 +17,7 @@ plt.colorbar()
 plt.grid(False)
 plt.show()"""
 
-#transfrom into greyscale
+# transfrom into greyscale
 train_img = train_img / 255.0
 test_img = test_img / 255.0
 
@@ -35,10 +35,10 @@ plt.show()"""
 # classes of clothing
 class_names = ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat', 'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot']
 
-#setup the model
-model=keras.Sequential()
-model.add(keras.layers.Dense(128,activation=tf.nn.relu,input_shape=(784,)))
-model.add(keras.layers.Dense(10,activation=tf.nn.softmax))
+# setup the model
+model = keras.Sequential()
+model.add(keras.layers.Dense(128, activation=tf.nn.relu, input_shape=(784,)))
+model.add(keras.layers.Dense(10, activation=tf.nn.softmax))
 
 """
 model=keras.Sequential(
@@ -48,15 +48,41 @@ model=keras.Sequential(
 ])
 """
 
-#compile the model
+# compile the model
 model.compile(
     optimizer=tf.train.AdamOptimizer(),
     loss='sparse_categorical_crossentropy',
     metrics=['accuracy']
 )
 
-#feed and train
-model.fit(train_img,train_label,batch_size=10,epochs=5)
+# checkpoint callback
+ckpt_path = 'logdir/train-{epoch:03d}.ckpt'
+ckpt_dir = os.path.dirname(ckpt_path)
+ckpt_callback = keras.callbacks.ModelCheckpoint(ckpt_path, save_weights_only=True, verbose=1, period=2)
+
+# 手动保存权重
+# model.save_weights('logdir/save_weights.ckpt')
+
+# 保存模型（包括compile信息等,不仅仅是权重）
+# model.save('logdir/model.ckpt')
+
+# 从模型ckpt中重新创建模型
+model=keras.models.load_model('logdir/model.ckpt')
+
+# feed and train
+model.fit(train_img, train_label, batch_size=10, epochs=10,
+          validation_data=(test_img, test_label),
+          callbacks=[ckpt_callback], verbose=2)
+
+model = keras.Sequential([
+    keras.layers.Dense(128, activation=tf.nn.relu, input_shape=(784,)),
+    keras.layers.Dense(10, activation=tf.nn.softmax)
+])
+model.compile(
+    optimizer=tf.train.AdamOptimizer(),
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
 
 #test model
 test_loss,test_acc=model.evaluate(test_img,test_label)
